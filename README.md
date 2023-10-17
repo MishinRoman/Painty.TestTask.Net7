@@ -1,0 +1,1 @@
+# Painty.TestTask.Net7
