@@ -12,7 +12,10 @@ namespace Painty.TestTask.Net7
             
         }
         DbSet<AppUser> AppUsers { get; set; }
-
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+        }
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
            

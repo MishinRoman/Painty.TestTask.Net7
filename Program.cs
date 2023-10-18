@@ -8,6 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 using Painty.TestTask.Net7.Data.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Swashbuckle.AspNetCore.Filters;
+using Microsoft.Extensions.Options;
+using System.Text;
 
 namespace Painty.TestTask.Net7
 {
@@ -22,11 +24,12 @@ namespace Painty.TestTask.Net7
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-                builder.Services.AddIdentityCore<AppUser>(options => {
-                options.SignIn.RequireConfirmedAccount = true;
-               
-                })
-    .AddEntityFrameworkStores<ApplicationDbContext>();
+            builder.Services.AddIdentityCore<AppUser>(options =>
+            {
+                options.SignIn.RequireConfirmedAccount = false;
+
+            })
+.AddEntityFrameworkStores<ApplicationDbContext>();
             builder.Services.Configure<IdentityOptions>(options =>
             {
                 // Password settings.
@@ -36,23 +39,43 @@ namespace Painty.TestTask.Net7
                 options.Password.RequireUppercase = false;
                 options.Password.RequiredLength = 3;
                 options.Password.RequiredUniqueChars = 1;
-                
+
 
                 // Lockout settings.
-                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(500);
                 options.Lockout.MaxFailedAccessAttempts = 5;
                 options.Lockout.AllowedForNewUsers = true;
 
                 // User settings.
                 options.User.AllowedUserNameCharacters =
                 "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
-                options.User.RequireUniqueEmail = true;
-                
-               
+                options.User.RequireUniqueEmail = false;
+
+
             });
             builder.Services.AddAuthorization();
             builder.Services.AddControllers();
-            builder.Services.AddAuthentication().AddJwtBearer();
+
+            builder.Services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            }).AddJwtBearer(options => { 
+            options.SaveToken = true;
+            options.RequireHttpsMetadata = false;
+            options.TokenValidationParameters = new TokenValidationParameters()
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidAudience = builder.Configuration["JWT:ValidAudience"],
+                ValidIssuer = builder.Configuration["JWT:ValidIssuer"],
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Secret"]))
+            };
+        }
+                
+                );
+
 
             builder.Services.AddCors();
 
@@ -70,52 +93,52 @@ namespace Painty.TestTask.Net7
                     BearerFormat = "JWT",
                     Scheme = "Bearer"
                 });
-                //option.AddSecurityRequirement(new OpenApiSecurityRequirement
-                //{
-                //    {
-                //        new OpenApiSecurityScheme
-                //        {
-                //            Reference = new OpenApiReference
-                //            {
-                //                Type=ReferenceType.SecurityScheme,
-                //                Id="Bearer"
-                //            },
-                          
-                //        },
-                //        new string[]{}
-                //    }
-                //});
-            });
-
-            var app = builder.Build();
-
-            // Configure the HTTP request pipeline.
-            if (app.Environment.IsDevelopment())
-            {
-                app.UseSwagger();
-                app.UseSwaggerUI();
-            }
-
-
-
-            //app.UseHttpsRedirection();
-            app.UseCors(options =>
-            {
-                if (app.Environment.IsDevelopment())
+option.AddSecurityRequirement(new OpenApiSecurityRequirement
                 {
-                    options.AllowAnyOrigin();
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type=ReferenceType.SecurityScheme,
+                                Id="Bearer"
+                            },
 
-                }
+                        },
+                        new string[]{}
+                    }
+                });
             });
 
-           
-            
-            app.UseStaticFiles();
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 
-            app.MapControllers();
 
-            app.Run();
+//app.UseHttpsRedirection();
+app.UseCors(options =>
+{
+    if (app.Environment.IsDevelopment())
+    {
+        options.AllowAnyOrigin();
+
+    }
+});
+
+
+
+app.UseStaticFiles();
+
+
+app.MapControllers();
+
+app.Run();
         }
     }
 }

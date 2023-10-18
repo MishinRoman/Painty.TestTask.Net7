@@ -16,8 +16,10 @@ namespace Painty.TestTask.Net7.Controllers
     public class LoginController : ControllerBase
     {
         private readonly ApplicationDbContext _dbContext;
-        public LoginController(ApplicationDbContext context)
+        private readonly IConfiguration _configuration;
+        public LoginController(ApplicationDbContext context, IConfiguration configuration)
         {
+            _configuration = configuration;
             _dbContext = context;
         }
        
@@ -28,11 +30,10 @@ namespace Painty.TestTask.Net7.Controllers
         {
             var user = _dbContext?.Users.FirstOrDefault(u => u.UserName == request.UserName);
 
-            GretePasswordHash(request.Password, out byte[] passwordHash, out byte[] passwordSalt);
+           
             user.UserName = request.UserName;
             user.Password = request.Password;
-            user.PasswordHash = passwordHash.ToString();//ToString дает значение  "Byte[]"!!!
-            user.SecurityStamp = passwordSalt.ToString();
+            
             user.Name = user.UserName;
             user.PhoneNumber = "123";
             user.Email = user.Name;
@@ -60,7 +61,7 @@ namespace Painty.TestTask.Net7.Controllers
 
                 var user = _dbContext?.Users.FirstOrDefault(u => u.UserName == loginDTO.UserName);
 
-                if (user == null && !VerifyPasswordHash(loginDTO.Password, Encoding.UTF8.GetBytes(user.Password), Encoding.UTF8.GetBytes(user.SecurityStamp)))
+                if (user == null && loginDTO.Password!=user.Password)
                 { return BadRequest("Error authorisation"); }
 
 
@@ -93,13 +94,14 @@ namespace Painty.TestTask.Net7.Controllers
 
             };
             SymmetricSecurityKey? secretKey = new SymmetricSecurityKey
-               (Encoding.UTF8.GetBytes("thisisasecretkey@123456989101112"));
+               (Encoding.UTF8.GetBytes("JWTAuthenticationHIGHsecuredPasswordVVVp1OH7Xzyr"));
 
             var signinCredentials = new SigningCredentials
               (secretKey, SecurityAlgorithms.HmacSha256);
 
             var jwtSecurityToken = new JwtSecurityToken(
-                   
+                   issuer: _configuration["JWT:ValidIssuer"],
+                audience: _configuration["JWT:ValidAudience"],
                    claims: claims,
                    expires: DateTime.Now.AddDays(10),
                    signingCredentials: signinCredentials
@@ -111,22 +113,8 @@ namespace Painty.TestTask.Net7.Controllers
             return jwt;
         }
 
-        private bool VerifyPasswordHash(string passwor, byte[] passwordHash, byte[] passwordSalt)
-        {
-            using (var hmac = new HMACSHA512(passwordSalt))
-            {
-                var computerHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(passwor));
-                return computerHash.SequenceEqual(passwordHash);
-            }
-        }
-        private void GretePasswordHash(string password, out byte[] passwordHash, out byte[] passwordSalt)
-        {
-            using (var hmac = new HMACSHA512())
-            {
-                passwordSalt = hmac.Key;
-                passwordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(password));
-            }
-        }
+        
+        
 
 
     }
